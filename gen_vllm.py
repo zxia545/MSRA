@@ -47,14 +47,14 @@ def generate_sentence(sample):
             max_tokens=50,
             temperature=0.7
         )
-        generated_sentence = response['choices'][0]['message']['content']
+        generated_sentence = response.choices[0].message.content
         sample['generated_sentence'] = generated_sentence.strip()
     except Exception as e:
         print(f"An error occurred: {e}")
         sample['generated_sentence'] = None
 
 async def run_with_semaphore(samples):
-    semaphore = asyncio.Semaphore(10)  # Limit to 10 concurrent requests
+    semaphore = asyncio.Semaphore(5)  # Limit to 10 concurrent requests
 
     async def run_with_semaphore_wrapper(sample):
         async with semaphore:

@@ -34,33 +34,37 @@ client = OpenAI(
     api_key="token-abc123"  # Replace this with an actual token if required for your vllm server setup
 )
 
-async def generate_sentence(sample, semaphore):
-    async with semaphore:
-        prompt = sample['prompt']
-        try:
-            messages = [
-                {"role": "system", "content": "You are a helpful assistant that generates sentences based on given relationships."},
-                {"role": "user", "content": prompt}
-            ]
-            response = await client.chat.completions.create(
-                model='gpt-4',
-                messages=messages,
-                max_tokens=50,
-                temperature=0.7
-            )
-            generated_sentence = response['choices'][0]['message']['content']
-            sample['generated_sentence'] = generated_sentence.strip()
-        except Exception as e:
-            print(f"An error occurred: {e}")
-            sample['generated_sentence'] = None
+def generate_sentence(sample):
+    prompt = sample['prompt']
+    try:
+        messages = [
+            {"role": "system", "content": "You are a helpful assistant that generates sentences based on given relationships."},
+            {"role": "user", "content": prompt}
+        ]
+        response = client.chat.completions.create(
+            model='gpt-4',
+            messages=messages,
+            max_tokens=50,
+            temperature=0.7
+        )
+        generated_sentence = response['choices'][0]['message']['content']
+        sample['generated_sentence'] = generated_sentence.strip()
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        sample['generated_sentence'] = None
 
-async def main():
+async def run_with_semaphore(samples):
     semaphore = asyncio.Semaphore(10)  # Limit to 10 concurrent requests
-    tasks = [generate_sentence(sample, semaphore) for sample in all_samples]
+
+    async def run_with_semaphore_wrapper(sample):
+        async with semaphore:
+            await asyncio.to_thread(generate_sentence, sample)
+
+    tasks = [run_with_semaphore_wrapper(sample) for sample in samples]
     await asyncio.gather(*tasks)
 
 # Run the asyncio event loop
-asyncio.run(main())
+asyncio.run(run_with_semaphore(all_samples))
 
 # Step 5: Save the results as a JSON file
 with open('generated_sentences.json', 'w', encoding='utf-8') as f:
